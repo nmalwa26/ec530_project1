@@ -95,7 +95,7 @@ def decide_table_action(incoming_schema: dict, existing_schemas: list[dict]) -> 
     """
     matching_table = find_matching_table(incoming_schema, existing_schemas)
 
-    # Perfect match → append
+    # Perfect match thenappend
     if matching_table:
         return {
             "action": "append",
@@ -111,7 +111,7 @@ def decide_table_action(incoming_schema: dict, existing_schemas: list[dict]) -> 
                 "options": ["overwrite", "rename", "skip"],
             }
 
-    # No conflict → create new table
+    # No conflict, then create new table
     return {
         "action": "create",
         "table_name": incoming_schema["table_name"],
