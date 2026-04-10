@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.schema_manager import get_existing_schemas
+from src.schema_manager import get_existing_schemas, format_schema_for_prompt
 from src.sql_validator import validate_sql
 from src.sqlite_manager import execute_select_query
+from src.llm_adapter import generate_sql
 
 
 def format_query_result(rows: list[dict[str, Any]]) -> str:
@@ -21,7 +22,7 @@ def format_query_result(rows: list[dict[str, Any]]) -> str:
 
     # Header row
     lines.append(" | ".join(headers))
-    lines.append("-" * (len(lines[0])))
+    lines.append("-" * len(lines[0]))
 
     # Data rows
     for row in rows:
@@ -62,6 +63,54 @@ def run_sql_query(sql: str, conn) -> dict[str, Any]:
     }
 
 
+def run_natural_language_query(user_query: str, conn) -> dict[str, Any]:
+    """
+    Convert a natural-language query into SQL using the LLM adapter,
+    validate the generated SQL, execute it if valid, and return results.
+    """
+    schemas = get_existing_schemas(conn)
+    schema_text = format_schema_for_prompt(schemas)
+
+    try:
+        generated_sql = generate_sql(user_query, schema_text)
+    except Exception as e:
+        return {
+            "success": False,
+            "mode": "natural_language",
+            "user_query": user_query,
+            "generated_sql": None,
+            "message": "LLM generation failed.",
+            "errors": [str(e)],
+            "rows": [],
+        }
+
+    validation = validate_sql(generated_sql, schemas)
+
+    if not validation["is_valid"]:
+        return {
+            "success": False,
+            "mode": "natural_language",
+            "user_query": user_query,
+            "generated_sql": generated_sql,
+            "message": "Generated SQL failed validation.",
+            "errors": validation["errors"],
+            "rows": [],
+        }
+
+    rows = execute_select_query(conn, generated_sql)
+
+    return {
+        "success": True,
+        "mode": "natural_language",
+        "user_query": user_query,
+        "generated_sql": generated_sql,
+        "message": f"Returned {len(rows)} row(s).",
+        "errors": [],
+        "rows": rows,
+        "formatted_result": format_query_result(rows),
+    }
+
+
 def process_query(
     user_input: str,
     conn,
@@ -70,13 +119,15 @@ def process_query(
     """
     Main query entry point.
 
-    Version 1:
-    - supports raw SQL mode
-    Future version:
-    - can route natural-language queries to the LLM adapter
+    Supports:
+    - raw SQL mode
+    - natural-language mode
     """
     if input_mode == "sql":
         return run_sql_query(user_input, conn)
+
+    if input_mode == "natural_language":
+        return run_natural_language_query(user_input, conn)
 
     return {
         "success": False,

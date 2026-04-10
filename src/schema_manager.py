@@ -123,3 +123,17 @@ def log_error(message: str) -> None:
     """
     with open("error_log.txt", "a") as f:
         f.write(message + "\n")
+
+def format_schema_for_prompt(existing_schemas: list[dict]) -> str:
+    """
+    Convert schema objects into a readable format for LLM prompting.
+    """
+    lines = []
+
+    for schema in existing_schemas:
+        lines.append(f"Table: {schema['table_name']}")
+        for column in schema["columns"]:
+            lines.append(f"- {column['name']} ({column['sqlite_type']})")
+        lines.append("")
+
+    return "\n".join(lines).strip()

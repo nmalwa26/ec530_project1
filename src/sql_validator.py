@@ -1,39 +1,3 @@
-# from typing import Any
-
-# def validate_sql(sql: str,schemas: list[dict[str, Any]]) -> dict[str, Any]:
-#     """
-#     Validate a SQL query.
-#     """
-#     pass
-
-
-# def is_select_query(sql: str) -> bool:
-#     """
-#     Return True only if the query is a SELECT query.
-#     """
-#     pass
-
-
-# def extract_table_names(sql: str) -> list[str]:
-#     """
-#     Extract referenced table names from a SQL query.
-#     """
-#     pass
-
-
-# def extract_column_names(sql: str) -> list[str]:
-#     """
-#     Extract referenced column names from a SQL query.
-#     """
-#     pass
-
-
-# def get_allowed_schema_map(schemas: list[dict[str, Any]]) -> dict[str, set[str]]:
-#     """
-#     Convert schema objects into a lookup map of table -> allowed columns.
-#     """
-#     pass
-
 from __future__ import annotations
 
 import re
@@ -126,19 +90,17 @@ def extract_table_names(sql: str) -> list[str]:
     pattern = r"\b(?:from|join)\s+([a-zA-Z_][a-zA-Z0-9_]*)"
     return re.findall(pattern, sql, flags=re.IGNORECASE)
 
-
 def extract_column_names(sql: str) -> list[str]:
     """
     Extract column names from the SELECT clause.
 
-    Example:
-        SELECT name, age FROM students
-        -> ["name", "age"]
+    Supports:
+    - simple columns: name, age
+    - table-qualified columns: students.name
+    - aggregate functions: SUM(s.revenue), COUNT(*)
+    - aliases: SUM(s.revenue) AS total_revenue
 
-    For version 1:
-    - supports simple comma-separated columns
-    - allows SELECT *
-    - strips aliases like 'students.name' -> 'name'
+    Returns cleaned base column names.
     """
     match = re.search(
         r"select\s+(.*?)\s+from\s",
@@ -158,12 +120,27 @@ def extract_column_names(sql: str) -> list[str]:
     cleaned_columns = []
 
     for column in raw_columns:
-        # Remove aliasing like "name as student_name"
+        # Remove alias: "SUM(s.revenue) AS total_revenue" -> "SUM(s.revenue)"
         column = re.split(r"\s+as\s+", column, flags=re.IGNORECASE)[0].strip()
 
-        # If table-qualified, keep only column part: students.name -> name
+        # Handle aggregate/function calls like SUM(...), AVG(...), COUNT(...)
+        func_match = re.match(r"[a-zA-Z_][a-zA-Z0-9_]*\((.*?)\)", column)
+        if func_match:
+            inner = func_match.group(1).strip()
+
+            # COUNT(*) or similar
+            if inner == "*":
+                cleaned_columns.append("*")
+                continue
+
+            column = inner
+
+        # Handle table-qualified names: s.revenue -> revenue
         if "." in column:
             column = column.split(".")[-1].strip()
+
+        # Remove stray parentheses or spaces
+        column = column.strip("() ")
 
         cleaned_columns.append(column)
 
