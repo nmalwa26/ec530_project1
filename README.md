@@ -48,3 +48,6 @@ Overall, the implementation emphasizes clear boundaries between components, mini
 
 ## Summary 
 Finally, the CLI was designed as the final layer of the system and is responsible only for user interaction. By keeping business logic out of the CLI, the system remains modular and can easily be extended in the future, for example by replacing the CLI with a web interface.
+
+## Video Link
+https://drive.google.com/file/d/1cSBiqTsmP__m5A8FvnUAWUB78A9Uqgps/view?usp=sharing 
